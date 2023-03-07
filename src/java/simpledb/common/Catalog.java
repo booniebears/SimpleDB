@@ -40,7 +40,7 @@ public class Catalog {
      * Add a new table to the catalog.
      * This table's contents are stored in the specified DbFile.
      *
-     * @param file      the contents of the table to add;  file.getId() is the identfier of
+     * @param file      the contents of the table to add;  file.getId() is the identifier of
      *                  this file/tupledesc param for the calls getTupleDesc and getFile
      * @param name      the name of the table -- may be an empty string.  May not be null.  If a name
      *                  conflict exists, use the last table to be added as the table for a given name.
@@ -49,7 +49,7 @@ public class Catalog {
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
         int id = file.getId();
-        // One "file" corresponds to one "Table"; Therefore the "id" of the file can be recognized
+        // One "DbFile" corresponds to one "Table"; Therefore the "id" of the file can be recognized
         // as the "id" of the table. The correlation is established by Building HashMap.
         IdToTableMap.put(id, new Table(file, name, pkeyField));
         NameToIdMap.put(name, id);
