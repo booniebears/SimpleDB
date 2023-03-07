@@ -101,7 +101,7 @@ public class Tuple implements Serializable {
         while (it.hasNext()) {
             TupleDesc.TDItem item = tit.next();
             stringBuilder.append("FieldName= ").append(item.fieldName).append(" ");
-            stringBuilder.append("Value= ").append(fields.get(i));
+            stringBuilder.append("Value= ").append(fields.get(i).toString());
             stringBuilder.append("\n");
             i++;
         }
