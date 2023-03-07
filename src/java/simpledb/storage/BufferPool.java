@@ -20,7 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * The BufferPool is also responsible for locking;  when a transaction fetches
  * a page, BufferPool checks that the transaction has the appropriate
  * locks to read/write the page.
- *
  */
 public class BufferPool {
     /**
@@ -82,7 +81,24 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        // TODO: Transaction. We don't implement this in lab1.
+        Page page = lruCache.get(pid);
+        if (page != null) {
+            return page;
+        }
+        //if the page is not in the lruCache, then load the page into the cache.
+        return LoadNewPage(pid);
+    }
+
+    private Page LoadNewPage(PageId pid) throws DbException {
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        Page page = dbFile.readPage(pid);
+        if (page != null) {
+            lruCache.put(pid, page);
+            if(lruCache.getMaxSize() == lruCache.getSize())
+                evictPage();
+        }
+        return page;
     }
 
     /**
