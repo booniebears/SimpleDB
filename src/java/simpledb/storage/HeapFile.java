@@ -6,6 +6,7 @@ import simpledb.common.Debug;
 import simpledb.common.Permissions;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
+import simpledb.utils.HeapFileIterator;
 
 import java.io.*;
 import java.util.*;
@@ -22,8 +23,8 @@ import java.util.*;
  */
 public class HeapFile implements DbFile {
 
-    private File f;
-    private TupleDesc td;
+    private final File f;
+    private final TupleDesc td;
     private RandomAccessFile randomAccessFile;
 
     /**
@@ -127,7 +128,7 @@ public class HeapFile implements DbFile {
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
         // some code goes here
-        return null;
+        return new HeapFileIterator(tid, this);
     }
 
 }

@@ -5,8 +5,8 @@ package simpledb.storage;
  */
 public class HeapPageId implements PageId {
 
-    private int tableId;
-    private int pgNo;
+    private final int tableId;
+    private final int pgNo;
 
     /**
      * Constructor. Create a page id structure for a specific page of a
