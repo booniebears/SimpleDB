@@ -24,7 +24,7 @@ public interface OpIterator extends Serializable{
       throws DbException, TransactionAbortedException;
 
   /** Returns true if the iterator has more tuples.
-   * @return true f the iterator has more tuples.
+   * @return true if the iterator has more tuples.
    * @throws IllegalStateException If the iterator has not been opened
  */
   boolean hasNext() throws DbException, TransactionAbortedException;
