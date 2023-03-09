@@ -70,11 +70,13 @@ public class IntegerAggregator implements Aggregator {
             //Build TupleDesc for td
             buildTupleDesc(tup.getTupleDesc());
         }
-        Field groupField = tup.getField(gbField);
         IntField aggField = (IntField) tup.getField(aField);
         if (gbField == NO_GROUPING) {
             Aggregating(DEFAULT_FIELD, aggField.getValue());
         } else {
+            // Be careful!!! When gbField equals NO_GROUPING, we cannot use the method tup.getField directly,
+            // or an IndexOutOfBoundsException would be triggered.
+            Field groupField = tup.getField(gbField);
             Aggregating(groupField, aggField.getValue());
         }
     }
