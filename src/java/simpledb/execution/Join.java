@@ -1,5 +1,6 @@
 package simpledb.execution;
 
+import simpledb.storage.TupleIterator;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.common.DbException;
 import simpledb.storage.Tuple;
@@ -18,6 +19,11 @@ public class Join extends Operator {
     private OpIterator child2;
 
     /**
+     * We introduce a tuple iterator here, which is similar to the implementation in OrderBy.java
+     */
+    private Iterator<Tuple> it;
+
+    /**
      * Constructor. Accepts two children to join and the predicate to join them
      * on
      *
@@ -30,6 +36,34 @@ public class Join extends Operator {
         this.p = p;
         this.child1 = child1;
         this.child2 = child2;
+    }
+
+    /**
+     * Implemented using nested loops join(二重循环)
+     */
+    public Iterator<Tuple> getIterator() throws TransactionAbortedException, DbException {
+        child1.rewind();
+        List<Tuple> tupleList = new ArrayList<>();
+        while (child1.hasNext()) {
+            Tuple tupleL = child1.next();
+            child2.rewind();
+            while (child2.hasNext()) {
+                Tuple tupleR = child2.next();
+                if (p.filter(tupleL, tupleR)) {
+                    int len1 = tupleL.getTupleDesc().numFields();
+                    int len2 = tupleR.getTupleDesc().numFields();
+                    Tuple newTuple = new Tuple(getTupleDesc());
+                    for (int i = 0; i < len1; i++) {
+                        newTuple.setField(i, tupleL.getField(i));
+                    }
+                    for (int i = 0; i < len2; i++) {
+                        newTuple.setField(i + len1, tupleR.getField(i));
+                    }
+                    tupleList.add(newTuple);
+                }
+            }
+        }
+        return tupleList.iterator();
     }
 
     public JoinPredicate getJoinPredicate() {
@@ -63,20 +97,32 @@ public class Join extends Operator {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        TupleDesc tupleDesc1 = child1.getTupleDesc();
+        TupleDesc tupleDesc2 = child2.getTupleDesc();
+        return TupleDesc.merge(tupleDesc1, tupleDesc2);
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
+        super.open();
+        child1.open();
+        child2.open();
+        it = getIterator();
     }
 
     public void close() {
         // some code goes here
+        super.close();
+        child1.close();
+        child2.close();
+        it = null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+        close();
+        open();
     }
 
     /**
@@ -99,18 +145,25 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+        if (it != null && it.hasNext()) {
+            return it.next();
+        }
         return null;
     }
 
     @Override
     public OpIterator[] getChildren() {
         // some code goes here
-        return null;
+        return new OpIterator[]{child1, child2};
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
         // some code goes here
+        if (children.length == 2) {
+            this.child1 = children[0];
+            this.child2 = children[1];
+        }
     }
 
 }
