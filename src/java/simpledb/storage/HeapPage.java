@@ -254,6 +254,18 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        // To delete a tuple, we need to set the relevant bit in "header" to 0, and physically
+        // remove the tuple from the class member "tuples".
+        RecordId recordId = t.getRecordId();
+        HeapPageId pageId = (HeapPageId) recordId.getPageId();
+        int tupleNumber = recordId.getTupleNumber();
+        if (!pageId.equals(pid)) {
+            throw new DbException("This tuple is not on this page!");
+        } else if (!isSlotUsed(tupleNumber)) {
+            throw new DbException("Tuple slot is already empty!");
+        }
+        markSlotUsed(tupleNumber, false);
+        tuples[tupleNumber] = null;
     }
 
     /**
@@ -267,6 +279,21 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        // To insert a tuple, we need to scan the whole page to find an empty slot. Then we mark the
+        // corresponding bit in "header", set the recordId(the pageId, the tupleNo) and finally
+        // insert the tuple into the class member "tuples" physically.
+        if (!t.getTupleDesc().equals(td)) {
+            throw new DbException("TupleDesc is mismatch!");
+        }
+        for (int i = 0; i < getNumTuples(); i++) {
+            if (!isSlotUsed(i)) {
+                markSlotUsed(i, true);
+                t.setRecordId(new RecordId(pid, i)); //
+                tuples[i] = t;
+                return;
+            }
+        }
+        throw new DbException("The page is full!");
     }
 
     /**
@@ -318,6 +345,16 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+        int index = i / 8;
+        int offset = i % 8;
+        //Calculate the position of the slot in the ByteArray "header", and change the value.
+        int mask = 1 << offset;
+        if (value) {
+            header[index] = (byte) (header[index] | mask);
+        } else {
+            mask = ~mask;
+            header[index] = (byte) (header[index] & mask);
+        }
     }
 
     /**
@@ -328,7 +365,7 @@ public class HeapPage implements Page {
         // some code goes here
         List<Tuple> tupleList = new ArrayList<>();
         for (int i = 0; i < tuples.length; i++) {
-            if(isSlotUsed(i)){
+            if (isSlotUsed(i)) {
                 tupleList.add(tuples[i]);
             }
         }
