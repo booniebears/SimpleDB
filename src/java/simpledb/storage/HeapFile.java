@@ -113,8 +113,30 @@ public class HeapFile implements DbFile {
     public List<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
         // not necessary for lab1
+        // To insert a tuple into a HeapFile, we first iterate through all the pages the heapFile
+        // contains; Then we call the insertTuple() of class "HeapPage" if there are empty slots
+        // remaining; Also remember to call markDirty() to store the TransactionId.
+        List<Page> modifyList = new ArrayList<>();
+        for (int i = 0; i < numPages(); i++) {
+            HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, new HeapPageId(getId(), i),
+                    Permissions.READ_WRITE);
+            if (page != null && page.getNumEmptySlots() > 0) {
+                page.insertTuple(t);
+                page.markDirty(true, tid);
+                modifyList.add(page);
+                break;
+            }
+        }
+        if (modifyList.size() == 0) {
+            // This indicates that all pages remaining are full. Therefore, a new page should be created.
+            HeapPageId heapPageId = new HeapPageId(getId(), numPages());
+            // Fantastic! The class HeapPage provides the method createEmptyPageData().
+            HeapPage heapPage = new HeapPage(heapPageId, HeapPage.createEmptyPageData());
+            writePage(heapPage);
+            // TODO: Finish writePage
+        }
+        return modifyList;
     }
 
     // see DbFile.java for javadocs
