@@ -99,6 +99,10 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        int offset = BufferPool.getPageSize() * page.getId().getPageNumber();
+        randomAccessFile.seek(offset);
+        byte[] pageData = page.getPageData();
+        randomAccessFile.write(pageData);
     }
 
     /**
@@ -110,6 +114,8 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
+    // TODO: Question: Why the variable returned is of "List<Page>" type? If we insert/delete a tuple,
+    // only one page will be changed.
     public List<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
@@ -134,7 +140,10 @@ public class HeapFile implements DbFile {
             // Fantastic! The class HeapPage provides the method createEmptyPageData().
             HeapPage heapPage = new HeapPage(heapPageId, HeapPage.createEmptyPageData());
             writePage(heapPage);
-            // TODO: Finish writePage
+            heapPage = (HeapPage) Database.getBufferPool().getPage(tid, heapPageId, Permissions.READ_WRITE);
+            heapPage.insertTuple(t);
+            heapPage.markDirty(true, tid);
+            modifyList.add(heapPage);
         }
         return modifyList;
     }
@@ -143,8 +152,16 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
         // not necessary for lab1
+        ArrayList<Page> pageList = new ArrayList<>();
+        RecordId recordId = t.getRecordId();
+        HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, recordId.getPageId(),
+                Permissions.READ_WRITE);
+        if (page != null && page.isSlotUsed(recordId.getTupleNumber())) {
+            page.deleteTuple(t);
+            pageList.add(page);
+        }
+        return pageList;
     }
 
     // see DbFile.java for javadocs

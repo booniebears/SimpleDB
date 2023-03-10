@@ -10,6 +10,7 @@ import simpledb.utils.LRUCache;
 
 import java.io.*;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -95,7 +96,7 @@ public class BufferPool {
         Page page = dbFile.readPage(pid);
         if (page != null) {
             lruCache.put(pid, page);
-            if(lruCache.getMaxSize() == lruCache.getSize())
+            if (lruCache.getMaxSize() == lruCache.getSize())
                 evictPage();
         }
         return page;
@@ -165,6 +166,12 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
+        List<Page> pages = dbFile.insertTuple(tid, t);
+        //After changing tuples on a page in BufferPool, the LRU algorithm should be called.
+        for (Page page : pages) {
+            lruCache.put(page.getId(), page);
+        }
     }
 
     /**
@@ -184,6 +191,13 @@ public class BufferPool {
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        // "tableId" can be ascertained by the information of "Tuple t"
+        int tableId = t.getRecordId().getPageId().getTableId();
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
+        List<Page> pages = dbFile.deleteTuple(tid, t);
+        for (Page page : pages) {
+            lruCache.put(page.getId(), page);
+        }
     }
 
     /**
