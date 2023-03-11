@@ -40,6 +40,8 @@ public class HeapFileIterator implements DbFileIterator {
                     Permissions.READ_ONLY);
             return page.iterator();
         } else {
+            System.out.println("heapFile length = " + heapFile.getFile().length());
+            System.out.println("NumOfPages = " + heapFile.numPages());
             throw new DbException(String.format("heapFile %d does not exist in page[%d]!",
                     heapFile.getId(), pgNo));
         }
