@@ -35,8 +35,8 @@ public class HeapFile implements DbFile {
      */
     public HeapFile(File f, TupleDesc td) {
         // some code goes here
-        System.out.println("HeapFile Initialization!");
-        System.out.println("File path = " + f);
+//        System.out.println("HeapFile Initialization!");
+//        System.out.println("File path = " + f);
         this.f = f;
         this.td = td;
         try {

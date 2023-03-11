@@ -5,11 +5,9 @@ import simpledb.common.Type;
 import simpledb.execution.Predicate;
 import simpledb.execution.SeqScan;
 import simpledb.storage.*;
-import simpledb.transaction.Transaction;
+import simpledb.transaction.TransactionId;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -73,6 +71,16 @@ public class TableStats {
     private int numTuples;
 
     /**
+     * I need to establish the relationship between every column in a table and the relevant
+     * histogram. Therefore a map is introduced, and to generalize a new generic interface called
+     * "Histogram<T>" is introduced, with class IntHistogram and StringHistogram as its
+     * implementations. The map is used in the method "estimateSelectivity"
+     */
+    private Map<Integer, Histogram> histogramMap;
+    private TupleDesc td;
+
+
+    /**
      * Create a new TableStats object, that keeps track of statistics on each
      * column of a table
      *
@@ -93,8 +101,68 @@ public class TableStats {
         this.ioCostPerPage = ioCostPerPage;
         this.numTuples = 0;
         HeapFile dbFile = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
+        this.td = dbFile.getTupleDesc();
         this.numPages = dbFile.numPages();
+        this.histogramMap = new HashMap<>();
+        // Build histogram for every field
+        // We need the minVal, maxVal of a column to build a histogram, therefore we have to scan
+        // all the tuples first, which is implemented by "fetchFieldValues()".
+        Map<Integer, ArrayList> fieldMap = fetchFieldValues();
+        for (int fieldId : fieldMap.keySet()) {
+            if (td.getFieldType(fieldId) == Type.INT_TYPE) {
+                List<Integer> list = fieldMap.get(fieldId);
+                int min = Collections.min(list);
+                int max = Collections.max(list);
+                Histogram<Integer> integerHistogram = new IntHistogram(NUM_HIST_BINS, min, max);
+                for (Integer v : list) {
+                    integerHistogram.addValue(v);
+                }
+                histogramMap.put(fieldId, integerHistogram);
+            } else if (td.getFieldType(fieldId) == Type.STRING_TYPE) {
+                List<String> list = fieldMap.get(fieldId);
+                Histogram<String> stringHistogram = new StringHistogram(NUM_HIST_BINS);
+                for (String v : list) {
+                    stringHistogram.addValue(v);
+                }
+                histogramMap.put(fieldId, stringHistogram);
+            }
+        }
+    }
 
+    private Map<Integer, ArrayList> fetchFieldValues() {
+        Map<Integer, ArrayList> fieldMap = new HashMap<>();
+        // Note that a new TransactionId is created.
+        SeqScan seqScan = new SeqScan(new TransactionId(), tableId);
+        // Allocate space for ArrayList
+        for (int i = 0; i < td.numFields(); i++) {
+            // Only two types are concerned in SimpleDb
+            if (td.getFieldType(i) == Type.INT_TYPE) {
+                fieldMap.put(i, new ArrayList<Integer>());
+            } else if (td.getFieldType(i) == Type.STRING_TYPE) {
+                fieldMap.put(i, new ArrayList<String>());
+            }
+        }
+        try {
+            seqScan.open();
+            while (seqScan.hasNext()) {
+                numTuples++;
+                Tuple next = seqScan.next();
+                for (int i = 0; i < td.numFields(); i++) {
+                    if (td.getFieldType(i) == Type.INT_TYPE) {
+                        IntField field = (IntField) (next.getField(i));
+                        fieldMap.get(i).add(field.getValue());
+                    } else if (td.getFieldType(i) == Type.STRING_TYPE) {
+                        StringField field = (StringField) next.getField(i);
+                        if (!field.getValue().equals("")) {
+                            fieldMap.get(i).add(field.getValue());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return fieldMap;
     }
 
     /**
@@ -139,6 +207,16 @@ public class TableStats {
      */
     public double avgSelectivity(int field, Predicate.Op op) {
         // some code goes here
+        switch (td.getFieldType(field)) {
+            case INT_TYPE: {
+                IntHistogram histogram = (IntHistogram) histogramMap.get(field);
+                return histogram.avgSelectivity();
+            }
+            case STRING_TYPE: {
+                StringHistogram histogram = (StringHistogram) histogramMap.get(field);
+                return histogram.avgSelectivity();
+            }
+        }
         return 1.0;
     }
 
@@ -154,7 +232,19 @@ public class TableStats {
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
         // some code goes here
-        return 1.0;
+        if (histogramMap.containsKey(field)) {
+            switch (td.getFieldType(field)) {
+                case INT_TYPE: {
+                    IntHistogram histogram = (IntHistogram) histogramMap.get(field);
+                    return histogram.estimateSelectivity(op, ((IntField) constant).getValue());
+                }
+                case STRING_TYPE: {
+                    StringHistogram histogram = (StringHistogram) histogramMap.get(field);
+                    return histogram.estimateSelectivity(op, ((StringField) constant).getValue());
+                }
+            }
+        }
+        return 0.0;
     }
 
     /**
