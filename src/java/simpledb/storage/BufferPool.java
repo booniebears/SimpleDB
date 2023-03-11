@@ -10,6 +10,7 @@ import simpledb.utils.LRUCache;
 
 import java.io.*;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -208,7 +209,13 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-
+        Iterator<Page> iterator = lruCache.valueIterator();
+        // Iterate through all the pages in LRUCache, and flush all of them to disk
+        while (iterator.hasNext()) {
+            PageId pid = iterator.next().getId();
+            System.out.println("Flushing All pages!");
+            flushPage(pid);
+        }
     }
 
     /**
@@ -223,6 +230,8 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        // Implement this in lab2!!!!!!!!!
+        lruCache.remove(pid);
     }
 
     /**
@@ -233,6 +242,11 @@ public class BufferPool {
     private synchronized void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        Page page = lruCache.get(pid);
+        dbFile.writePage(page);
+        System.out.println("Flushing a page!");
+        page.markDirty(false, null);
     }
 
     /**
@@ -250,6 +264,17 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        // Evict the pages that are Least Recently Used first. Note that we choose to evict those pages
+        // that are not dirty, so that a flush operation is not needed.
+        Iterator<Page> iterator = lruCache.reverseIterator();
+        while(iterator.hasNext()){
+            Page next = iterator.next();
+            if(next.isDirty() == null){
+                discardPage(next.getId());
+                return;
+            }
+        }
+        throw new DbException("All the pages are dirty in BufferPool!");
     }
 
 }

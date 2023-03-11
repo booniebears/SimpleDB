@@ -305,6 +305,8 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
         // not necessary for lab1
+        // When the page in the BufferPool is modified and that on the disk is not,
+        // we mark this page as dirty.
         this.tid = dirty ? tid : null;
     }
 

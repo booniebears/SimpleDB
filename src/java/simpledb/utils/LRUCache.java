@@ -1,8 +1,8 @@
 package simpledb.utils;
 
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * LRUCache is A BufferPool Area containing several pages, where the pages are
@@ -93,6 +93,22 @@ public class LRUCache<K, V> {
             LRUMap.remove(key);
             removeNode(node);
         }
+    }
+
+    public synchronized Iterator<V> valueIterator() {
+        Collection<PageNode> values = LRUMap.values();
+        List<V> list = values.stream().map(x -> x.value).collect(Collectors.toList());
+        return list.iterator();
+    }
+
+    public synchronized Iterator<V> reverseIterator() {
+        PageNode node = tail.prev;
+        List<V> list = new ArrayList<>();
+        while (!node.equals(head)) {
+            list.add(node.value);
+            node = node.prev;
+        }
+        return list.iterator();
     }
 
     public int getMaxSize() {
