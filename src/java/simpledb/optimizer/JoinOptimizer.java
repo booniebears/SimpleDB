@@ -186,26 +186,44 @@ public class JoinOptimizer {
      * @return a set of all subsets of the specified size
      */
     public <T> Set<Set<T>> enumerateSubsets(List<T> v, int size) {
-        Set<Set<T>> els = new HashSet<>();
-        els.add(new HashSet<>());
-        // Iterator<Set> it;
-        // long start = System.currentTimeMillis();
-
-        for (int i = 0; i < size; i++) {
-            Set<Set<T>> newels = new HashSet<>();
-            for (Set<T> s : els) {
-                for (T t : v) {
-                    Set<T> news = new HashSet<>(s);
-                    if (news.add(t))
-                        newels.add(news);
-                }
-            }
-            els = newels;
-        }
-
-        return els;
-
+        Set<Set<T>> subsets = new HashSet<>();
+        Deque<T> subset = new ArrayDeque<>();
+        dfs(v, 0, size, subset, subsets);
+        return subsets;
     }
+
+    // 采用回溯的方式降低复杂度，减少创建新对象数，从而提高效率。DFS求一个序列的所有子集。
+    private <T> void dfs(List<T> list, int cur, int size, Deque<T> subset, Set<Set<T>> subsets) {
+        if (subset.size() == size) {
+            subsets.add(new HashSet<>(subset));
+            return;
+        }
+        for (int i = cur; i < list.size(); i++) {
+            subset.addLast(list.get(i));
+            dfs(list, i + 1, size, subset, subsets);
+            subset.removeLast();
+        }
+    }
+
+//    public <T> Set<Set<T>> enumerateSubsets(List<T> v, int size) {
+//        Set<Set<T>> els = new HashSet<>();
+//        els.add(new HashSet<>());
+//        // Iterator<Set> it;
+//        // long start = System.currentTimeMillis();
+//
+//        for (int i = 0; i < size; i++) {
+//            Set<Set<T>> newels = new HashSet<>();
+//            for (Set<T> s : els) {
+//                for (T t : v) {
+//                    Set<T> news = new HashSet<>(s);
+//                    if (news.add(t))
+//                        newels.add(news);
+//                }
+//            }
+//            els = newels;
+//        }
+//        return els;
+//    }
 
     /**
      * Compute a logical, reasonably efficient join on the specified tables. See
