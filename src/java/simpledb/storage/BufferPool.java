@@ -162,7 +162,36 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid, boolean commit) {
         // some code goes here
         // not necessary for lab1|lab2
-        // TODO:
+        if (commit) { //Commit successfully
+            try {
+                flushPages(tid);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            restorePages(tid);
+        }
+        // Releasing any locks that the transaction held
+        lockManager.releaseAllLocks(tid);
+    }
+
+    /**
+     * Revert any changes made by the transaction by restoring the page to its on-disk state.
+     */
+    public synchronized void restorePages(TransactionId tid) {
+        Iterator<Page> pageIterator = lruCache.valueIterator();
+        while (pageIterator.hasNext()) {
+            Page next = pageIterator.next();
+            if (next.isDirty() == tid) {
+                // Discard the dirty page in the BufferPool, then load it again from disk
+                discardPage(next.getId());
+                try {
+                    LoadNewPage(next.getId());
+                } catch (DbException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     /**
@@ -272,6 +301,14 @@ public class BufferPool {
     public synchronized void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        // Go through all the pages in BufferPool
+        Iterator<Page> pageIterator = lruCache.valueIterator();
+        while (pageIterator.hasNext()) {
+            Page next = pageIterator.next();
+            if (next.isDirty() == tid) {
+                flushPage(next.getId());
+            }
+        }
     }
 
     /**
