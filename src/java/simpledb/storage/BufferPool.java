@@ -4,6 +4,8 @@ import simpledb.common.Database;
 import simpledb.common.Permissions;
 import simpledb.common.DbException;
 import simpledb.common.DeadlockException;
+import simpledb.transaction.LockManager;
+import simpledb.transaction.LockType;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 import simpledb.utils.LRUCache;
@@ -39,6 +41,7 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     private LRUCache<PageId, Page> lruCache;
+    private LockManager lockManager;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -84,6 +87,18 @@ public class BufferPool {
             throws TransactionAbortedException, DbException {
         // some code goes here
         // TODO: Transaction. We don't implement this in lab1.
+        LockType lockType = perm == Permissions.READ_ONLY ? LockType.SHARED_LOCK : LockType.EX_LOCK;
+        int retry = 2;
+        try {
+            if (!lockManager.acquireLock(pid, tid, lockType, retry)) {
+                System.out.println("Fail to acquire lock!!!");
+                throw new TransactionAbortedException();
+            }
+        } catch (InterruptedException e) {
+            System.out.println("Exception found when acquiring lock!!!");
+            e.printStackTrace();
+        }
+
         Page page = lruCache.get(pid);
         if (page != null) {
             return page;
@@ -115,6 +130,7 @@ public class BufferPool {
     public void unsafeReleasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        lockManager.releaseLockOnPage(tid, pid);
     }
 
     /**
@@ -125,6 +141,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) {
         // some code goes here
         // not necessary for lab1|lab2
+        transactionComplete(tid, true);
     }
 
     /**
@@ -133,7 +150,7 @@ public class BufferPool {
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return lockManager.holdsLock(tid, p);
     }
 
     /**
@@ -146,6 +163,7 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid, boolean commit) {
         // some code goes here
         // not necessary for lab1|lab2
+        // TODO:
     }
 
     /**
@@ -267,9 +285,9 @@ public class BufferPool {
         // Evict the pages that are Least Recently Used first. Note that we choose to evict those pages
         // that are not dirty, so that a flush operation is not needed.
         Iterator<Page> iterator = lruCache.reverseIterator();
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
             Page next = iterator.next();
-            if(next.isDirty() == null){
+            if (next.isDirty() == null) {
                 discardPage(next.getId());
                 return;
             }

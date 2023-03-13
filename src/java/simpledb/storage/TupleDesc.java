@@ -223,7 +223,7 @@ public class TupleDesc implements Serializable {
             stringBuilder.append(tdItem.fieldType).append("(").append(tdItem.fieldName).append(")")
                     .append(',');
         }
-        stringBuilder.deleteCharAt(stringBuilder.length()-1); //delete the unnecessary ","
+        stringBuilder.deleteCharAt(stringBuilder.length() - 1); //delete the unnecessary ","
         return String.valueOf(stringBuilder);
     }
 }
