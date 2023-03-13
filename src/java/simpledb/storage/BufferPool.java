@@ -51,7 +51,7 @@ public class BufferPool {
     public BufferPool(int numPages) {
         // some code goes here
         this.lruCache = new LRUCache<>(numPages);
-
+        this.lockManager = new LockManager();
     }
 
     public static int getPageSize() {
@@ -86,7 +86,6 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // some code goes here
-        // TODO: Transaction. We don't implement this in lab1.
         LockType lockType = perm == Permissions.READ_ONLY ? LockType.SHARED_LOCK : LockType.EX_LOCK;
         int retry = 2;
         try {
