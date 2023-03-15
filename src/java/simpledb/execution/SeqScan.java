@@ -123,11 +123,19 @@ public class SeqScan implements OpIterator {
     public Tuple next() throws NoSuchElementException,
             TransactionAbortedException, DbException {
         // some code goes here
-        if (dbFileIterator == null)
-            throw new IllegalStateException("The iterator has not been opened!");
-        else if (!dbFileIterator.hasNext())
-            throw new NoSuchElementException("No more tuples!");
-        return dbFileIterator.next();
+//        if (dbFileIterator == null)
+//            throw new IllegalStateException("The iterator has not been opened!");
+//        else if (!dbFileIterator.hasNext())
+//            throw new NoSuchElementException("No more tuples!");
+//        return dbFileIterator.next();
+        if (dbFileIterator == null) {
+            throw new NoSuchElementException("The dbFileIterator is null");
+        }
+        Tuple t = dbFileIterator.next();
+        if (t == null) {
+            throw new NoSuchElementException("The next tuple is null");
+        }
+        return t;
     }
 
     public void close() {

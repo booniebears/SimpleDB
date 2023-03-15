@@ -2,6 +2,7 @@ package simpledb.transaction;
 
 import simpledb.storage.PageId;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -88,6 +89,7 @@ public class LockManager {
         return false;
     }
 
+
     /**
      * Release the locks of a transaction on all the pages
      */
@@ -105,7 +107,7 @@ public class LockManager {
         if (holdsLock(tid, pid)) {
             ConcurrentHashMap<TransactionId, LockType> map = lockMap.get(pid);
             map.remove(tid);
-            if(map.size() == 0){
+            if (map.size() == 0) {
                 // Remember to remove the map if no locks remain on this page
                 lockMap.remove(pid);
             }

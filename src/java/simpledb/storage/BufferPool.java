@@ -110,9 +110,9 @@ public class BufferPool {
         DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
         Page page = dbFile.readPage(pid);
         if (page != null) {
-            lruCache.put(pid, page);
             if (lruCache.getMaxSize() == lruCache.getSize())
                 evictPage();
+            lruCache.put(pid, page);
         }
         return page;
     }
@@ -330,5 +330,5 @@ public class BufferPool {
         }
         throw new DbException("All the pages are dirty in BufferPool!");
     }
-
 }
+

@@ -169,7 +169,7 @@ public class HeapFile implements DbFile {
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
         // some code goes here
-        System.out.println("HeapFile length = " + f.length());
+//        System.out.println("HeapFile length = " + f.length());
         return new HeapFileIterator(tid, this);
     }
 

@@ -2,6 +2,7 @@ package simpledb.utils;
 
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -33,7 +34,7 @@ public class LRUCache<K, V> {
         this.tail = new PageNode(null, null);
         this.head.next = tail;
         this.tail.prev = head;
-        this.LRUMap = new HashMap<>();
+        this.LRUMap = new ConcurrentHashMap<>();
     }
 
     /**
