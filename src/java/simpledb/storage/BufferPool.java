@@ -40,7 +40,7 @@ public class BufferPool {
      */
     public static final int DEFAULT_PAGES = 50;
 
-    private LRUCache<PageId, Page> lruCache;
+    private LRUCache lruCache; // A mapping from PageId to Page.
     private LockManager lockManager;
 
     /**
@@ -50,7 +50,7 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
-        this.lruCache = new LRUCache<>(numPages);
+        this.lruCache = new LRUCache(numPages);
         this.lockManager = new LockManager();
     }
 

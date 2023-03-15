@@ -1,6 +1,9 @@
 package simpledb.utils;
 
 
+import simpledb.storage.Page;
+import simpledb.storage.PageId;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -10,28 +13,26 @@ import java.util.stream.Collectors;
  * replaced using LRU algorithm. It's a relatively complex data structure.
  * An "LRUCache" is made up of many "PageNode".
  */
-public class LRUCache<K, V> {
+public class LRUCache {
     public class PageNode {
         private PageNode next;
         private PageNode prev;
-        private K key;
-        private V value;
+        private Page value;
 
-        public PageNode(K key, V value) {
-            this.key = key;
+        public PageNode(Page value) {
             this.value = value;
         }
     }
 
     private int MaxSize;
-    private Map<K, PageNode> LRUMap;
+    private Map<PageId, PageNode> LRUMap;
     private PageNode head;
     private PageNode tail;
 
     public LRUCache(int maxSize) {
         this.MaxSize = maxSize;
-        this.head = new PageNode(null, null);
-        this.tail = new PageNode(null, null);
+        this.head = new PageNode(null);
+        this.tail = new PageNode(null);
         this.head.next = tail;
         this.tail.prev = head;
         this.LRUMap = new ConcurrentHashMap<>();
@@ -66,7 +67,7 @@ public class LRUCache<K, V> {
     /**
      * The methods "put" and "get" display the central part of the LRU algorithm.
      */
-    public synchronized V get(K key) {
+    public synchronized Page get(PageId key) {
         //V is actually "Page".
         if (LRUMap.containsKey(key)) {
             PageNode node = LRUMap.get(key);
@@ -76,19 +77,19 @@ public class LRUCache<K, V> {
         return null;
     }
 
-    public synchronized void put(K key, V value) {
+    public synchronized void put(PageId key, Page value) {
         if (LRUMap.containsKey(key)) {
             PageNode node = LRUMap.get(key);
             node.value = value;
             moveToHead(node);
         } else {
-            PageNode newNode = new PageNode(key, value);
+            PageNode newNode = new PageNode(value);
             LRUMap.put(key, newNode);
             addToHead(newNode);
         }
     }
 
-    public synchronized void remove(K key) {
+    public synchronized void remove(PageId key) {
         if (LRUMap.containsKey(key)) {
             PageNode node = LRUMap.get(key);
             LRUMap.remove(key);
@@ -96,15 +97,15 @@ public class LRUCache<K, V> {
         }
     }
 
-    public synchronized Iterator<V> valueIterator() {
+    public synchronized Iterator<Page> valueIterator() {
         Collection<PageNode> values = LRUMap.values();
-        List<V> list = values.stream().map(x -> x.value).collect(Collectors.toList());
+        List<Page> list = values.stream().map(x -> x.value).collect(Collectors.toList());
         return list.iterator();
     }
 
-    public synchronized Iterator<V> reverseIterator() {
+    public synchronized Iterator<Page> reverseIterator() {
         PageNode node = tail.prev;
-        List<V> list = new ArrayList<>();
+        List<Page> list = new ArrayList<>();
         while (!node.equals(head)) {
             list.add(node.value);
             node = node.prev;
