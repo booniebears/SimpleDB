@@ -76,6 +76,7 @@ public class SeqScan implements OpIterator {
         // some code goes here
         this.tableid = tableid;
         this.tableAlias = tableAlias;
+        this.dbFileIterator = null;
     }
 
     public SeqScan(TransactionId tid, int tableId) {
@@ -128,19 +129,20 @@ public class SeqScan implements OpIterator {
 //        else if (!dbFileIterator.hasNext())
 //            throw new NoSuchElementException("No more tuples!");
 //        return dbFileIterator.next();
-        if (dbFileIterator == null) {
-            throw new NoSuchElementException("The dbFileIterator is null");
-        }
-        Tuple t = dbFileIterator.next();
-        if (t == null) {
-            throw new NoSuchElementException("The next tuple is null");
-        }
-        return t;
+//        if (dbFileIterator == null) {
+//            throw new NoSuchElementException("The dbFileIterator is null");
+//        }
+//        Tuple t = dbFileIterator.next();
+//        if (t == null) {
+//            throw new NoSuchElementException("The next tuple is null");
+//        }
+//        return t;
+        return dbFileIterator.next();
     }
 
     public void close() {
         // some code goes here
-        dbFileIterator = null;
+        dbFileIterator.close();
     }
 
     public void rewind() throws DbException, NoSuchElementException,
