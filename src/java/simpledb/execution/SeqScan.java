@@ -116,8 +116,9 @@ public class SeqScan implements OpIterator {
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        if (dbFileIterator == null)
-            throw new IllegalStateException("The iterator has not been opened!");
+//        if (dbFileIterator == null)
+//            throw new IllegalStateException("The iterator has not been opened!");
+//        return dbFileIterator.hasNext();
         return dbFileIterator.hasNext();
     }
 
