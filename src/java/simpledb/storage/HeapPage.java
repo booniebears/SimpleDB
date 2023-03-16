@@ -368,13 +368,47 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        List<Tuple> tupleList = new ArrayList<>();
-        for (int i = 0; i < tuples.length; i++) {
-            if (isSlotUsed(i)) {
-                tupleList.add(tuples[i]);
-            }
+//        List<Tuple> tupleList = new ArrayList<>();
+//        for (int i = 0; i < tuples.length; i++) {
+//            if (isSlotUsed(i)) {
+//                tupleList.add(tuples[i]);
+//            }
+//        }
+//        return tupleList.iterator();
+        return new TupleIterator(tuples);
+    }
+
+    private static class TupleIterator implements Iterator<Tuple> {
+
+        private final Tuple[] tuples;
+
+        private int index = 0;
+
+        public TupleIterator(Tuple[] tuples) {
+            this.tuples = tuples;
+
         }
-        return tupleList.iterator();
+
+        @Override
+        public boolean hasNext() {
+            for (; index < tuples.length; index++) {
+                if (tuples[index] != null) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        @Override
+        public Tuple next() {
+            return tuples[index++];
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
     }
 
 }

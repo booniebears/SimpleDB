@@ -94,18 +94,23 @@ public class Tuple implements Serializable {
      */
     public String toString() {
         // some code goes here
-        StringBuilder stringBuilder = new StringBuilder();
-        Iterator<TupleDesc.TDItem> tit = tupleDesc.iterator();
-        int i = 0;
-        while (tit.hasNext()) {
-            TupleDesc.TDItem item = tit.next();
-            stringBuilder.append("FieldName= ").append(item.fieldName).append(" ");
-            stringBuilder.append("Value= ").append(fields.get(i).toString());
-            stringBuilder.append("\n");
-            i++;
+//        StringBuilder stringBuilder = new StringBuilder();
+//        Iterator<TupleDesc.TDItem> tit = tupleDesc.iterator();
+//        int i = 0;
+//        while (tit.hasNext()) {
+//            TupleDesc.TDItem item = tit.next();
+//            stringBuilder.append("FieldName= ").append(item.fieldName).append(" ");
+//            stringBuilder.append("Value= ").append(fields.get(i).toString());
+//            stringBuilder.append("\n");
+//            i++;
+//        }
+//        stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
+//        return String.valueOf(stringBuilder);
+        StringBuilder sb = new StringBuilder();
+        for (Field field : fields) {
+            sb.append(field).append(" ");
         }
-        stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
-        return String.valueOf(stringBuilder);
+        return sb.toString();
     }
 
     /**

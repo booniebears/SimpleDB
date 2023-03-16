@@ -12,8 +12,10 @@ import simpledb.utils.LRUCache;
 
 import java.io.*;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -41,7 +43,9 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     private LRUCache lruCache; // A mapping from PageId to Page.
-    private LockManager lockManager;
+    private final LockManager lockManager;
+    private final Map<PageId, Page> pageMap;
+    private final int numPages;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -52,6 +56,8 @@ public class BufferPool {
         // some code goes here
         this.lruCache = new LRUCache(numPages);
         this.lockManager = new LockManager();
+        this.pageMap = new HashMap<>();
+        this.numPages = numPages;
     }
 
     public static int getPageSize() {
@@ -98,10 +104,11 @@ public class BufferPool {
             e.printStackTrace();
         }
 
-        Page page = lruCache.get(pid);
-        if (page != null) {
-            return page;
-        }
+//        Page page = lruCache.get(pid);
+//        if (page != null) {
+//            return page;
+//        }
+        if (pageMap.containsKey(pid)) return pageMap.get(pid);
         //if the page is not in the lruCache, then load the page into the cache.
         return LoadNewPage(pid);
     }
@@ -109,11 +116,17 @@ public class BufferPool {
     private Page LoadNewPage(PageId pid) throws DbException {
         DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
         Page page = dbFile.readPage(pid);
-        if (page != null) {
-            if (lruCache.getMaxSize() == lruCache.getSize())
+//        if (page != null) {
+//            if (lruCache.getMaxSize() == lruCache.getSize())
+//                evictPage();
+//            lruCache.put(pid, page);
+//        }
+        if (pageMap.size() >= numPages) {
+            synchronized (this.pageMap) {
                 evictPage();
-            lruCache.put(pid, page);
+            }
         }
+        pageMap.putIfAbsent(pid, page);
         return page;
     }
 
@@ -320,15 +333,15 @@ public class BufferPool {
         // not necessary for lab1
         // Evict the pages that are Least Recently Used first. Note that we choose to evict those pages
         // that are not dirty, so that a flush operation is not needed.
-        Iterator<Page> iterator = lruCache.reverseIterator();
-        while (iterator.hasNext()) {
-            Page next = iterator.next();
-            if (next.isDirty() == null) {
-                discardPage(next.getId());
-                return;
-            }
-        }
-        throw new DbException("All the pages are dirty in BufferPool!");
+//        Iterator<Page> iterator = lruCache.reverseIterator();
+//        while (iterator.hasNext()) {
+//            Page next = iterator.next();
+//            if (next.isDirty() == null) {
+//                discardPage(next.getId());
+//                return;
+//            }
+//        }
+//        throw new DbException("All the pages are dirty in BufferPool!");
     }
 }
 
