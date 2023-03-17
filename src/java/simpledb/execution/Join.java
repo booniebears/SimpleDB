@@ -14,7 +14,7 @@ import java.util.*;
 public class Join extends Operator {
 
     private static final long serialVersionUID = 1L;
-    private JoinPredicate p;
+    private final JoinPredicate p;
     private OpIterator child1;
     private OpIterator child2;
 

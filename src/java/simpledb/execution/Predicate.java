@@ -12,9 +12,9 @@ public class Predicate implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private int field; /* field的值表明选中TupleDesc列表中的第几项 */
-    private Op op; /* 操作符 */
-    private Field operand; /* 这是在Tuple中一个真实的值 */
+    private final int field; /* field的值表明选中TupleDesc列表中的第几项 */
+    private final Op op; /* 操作符 */
+    private final Field operand; /* 这是在Tuple中一个真实的值 */
 
     /**
      * Constants used for return codes in Field.compare

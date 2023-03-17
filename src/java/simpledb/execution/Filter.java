@@ -14,7 +14,7 @@ public class Filter extends Operator {
 
     private static final long serialVersionUID = 1L;
 
-    private Predicate p;
+    private final Predicate p;
     private OpIterator child;
 
     /**
@@ -43,14 +43,14 @@ public class Filter extends Operator {
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
-        super.open();
         child.open();
+        super.open();
     }
 
     public void close() {
         // some code goes here
-        super.close();
         child.close();
+        super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {

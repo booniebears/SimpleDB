@@ -15,14 +15,14 @@ public class IntegerAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
 
-    private int gbField;
-    private Type gbFieldType;
-    private int aField;
-    private Op op;
+    private final int gbField;
+    private final Type gbFieldType;
+    private final int aField;
+    private final Op op;
 
-    private Map<Field, AggInfo> groupMap;
+    private final Map<Field, AggInfo> groupMap;
     private TupleDesc td;
-    private Field DEFAULT_FIELD = new StringField("Default", 10);
+    private final Field DEFAULT_FIELD = new StringField("Default", 10);
 
     /**
      * The method mergeTupleIntoGroup() processes only one tuple at a time, so we have to record the

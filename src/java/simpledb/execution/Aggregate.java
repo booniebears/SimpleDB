@@ -23,10 +23,10 @@ public class Aggregate extends Operator {
     private static final long serialVersionUID = 1L;
 
     private OpIterator child;
-    private int aField;
-    private int gbField;
-    private Aggregator.Op aop;
-    private Type gbFieldType;
+    private final int aField;
+    private final int gbField;
+    private final Aggregator.Op aop;
+    private final Type gbFieldType;
 
     private Aggregator aggregator;
     private TupleIterator tupleIterator;
@@ -172,9 +172,10 @@ public class Aggregate extends Operator {
 
     public void close() {
         // some code goes here
+        super.close();
         child.close();
         tupleIterator.close();
-        super.close();
+        aggregator = null;
     }
 
     @Override

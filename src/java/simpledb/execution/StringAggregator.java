@@ -14,18 +14,18 @@ import java.util.Map;
 public class StringAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
-    private int gbField;
-    private Type gbFieldType;
-    private int aField;
-    private Op op;
+    private final int gbField;
+    private final Type gbFieldType;
+    private final int aField;
+    private final Op op;
 
     /**
      * Since the StringAggregator only supports "COUNT" here, we don't have to introduce another
      * AggInfo like that in IntegerAggregator.
      */
-    private Map<Field, Integer> groupMap;
+    private final Map<Field, Integer> groupMap;
     private TupleDesc td;
-    private Field DEFAULT_FIELD = new StringField("Default", 10);
+    private final Field DEFAULT_FIELD = new StringField("Default", 10);
 
     /**
      * Aggregate constructor
@@ -58,7 +58,9 @@ public class StringAggregator implements Aggregator {
         }
         Field groupField = tup.getField(gbField);
         Field target = (gbField == NO_GROUPING) ? DEFAULT_FIELD : groupField;
-        groupMap.put(target, groupMap.getOrDefault(target, 0) + 1);
+        if (op == Op.COUNT) {
+            groupMap.put(target, groupMap.getOrDefault(target, 0) + 1);
+        }
     }
 
     private void buildTupleDesc(TupleDesc originalTd) {

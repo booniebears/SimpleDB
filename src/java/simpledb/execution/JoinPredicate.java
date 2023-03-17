@@ -13,9 +13,9 @@ public class JoinPredicate implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private int field1;
-    private Predicate.Op op;
-    private int field2;
+    private final int field1;
+    private final Predicate.Op op;
+    private final int field2;
 
     /**
      * Constructor -- create a new predicate over two fields of two tuples.
