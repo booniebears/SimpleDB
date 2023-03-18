@@ -20,9 +20,9 @@ public class Delete extends Operator {
 
     private static final long serialVersionUID = 1L;
 
-    private TransactionId tid;
+    private final TransactionId tid;
     private OpIterator child;
-    private TupleDesc deleteTd;
+    private final TupleDesc deleteTd;
     private boolean isFetched;
 
     /**
@@ -74,6 +74,8 @@ public class Delete extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
+        if (isFetched) return null;
+        isFetched = true;
         int cnt = 0;
         while (child.hasNext()) {
             Tuple next = child.next();
@@ -84,9 +86,6 @@ public class Delete extends Operator {
             }
             cnt++;
         }
-        if (cnt == 0 && isFetched)
-            return null;
-        isFetched = true;
         Tuple tuple = new Tuple(deleteTd);
         tuple.setField(0, new IntField(cnt));
         return tuple;

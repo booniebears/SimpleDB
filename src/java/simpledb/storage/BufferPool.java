@@ -12,10 +12,7 @@ import simpledb.utils.LRUCache;
 
 import java.io.*;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -228,9 +225,10 @@ public class BufferPool {
         // not necessary for lab1
         DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
         List<Page> pages = dbFile.insertTuple(tid, t);
-        //After changing tuples on a page in BufferPool, the LRU algorithm should be called.
         for (Page page : pages) {
-            lruCache.put(page.getId(), page);
+//            lruCache.put(page.getId(), page);
+            page.markDirty(true, tid);
+            pageMap.put(page.getId(), page);
         }
     }
 
@@ -256,7 +254,9 @@ public class BufferPool {
         DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
         List<Page> pages = dbFile.deleteTuple(tid, t);
         for (Page page : pages) {
-            lruCache.put(page.getId(), page);
+//            lruCache.put(page.getId(), page);
+            pageMap.put(page.getId(), page);
+            page.markDirty(true, tid);
         }
     }
 
@@ -268,13 +268,20 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-        Iterator<Page> iterator = lruCache.valueIterator();
-        // Iterate through all the pages in LRUCache, and flush all of them to disk
-        while (iterator.hasNext()) {
-            PageId pid = iterator.next().getId();
-            System.out.println("Flushing All pages!");
-            flushPage(pid);
-        }
+//        Iterator<Page> iterator = lruCache.valueIterator();
+//        // Iterate through all the pages in LRUCache, and flush all of them to disk
+//        while (iterator.hasNext()) {
+//            PageId pid = iterator.next().getId();
+//            System.out.println("Flushing All pages!");
+//            flushPage(pid);
+//        }
+        pageMap.forEach((pageId, page) -> {
+            try {
+                flushPage(pageId);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     /**
@@ -290,7 +297,8 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         // Implement this in lab2!!!!!!!!!
-        lruCache.remove(pid);
+//        lruCache.remove(pid);
+        pageMap.remove(pid);
     }
 
     /**
@@ -302,9 +310,10 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
-        Page page = lruCache.get(pid);
+//        Page page = lruCache.get(pid);
+        Page page = pageMap.get(pid);
+        // TODO: logfile???
         dbFile.writePage(page);
-        System.out.println("Flushing a page!");
         page.markDirty(false, null);
     }
 
@@ -315,13 +324,22 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1|lab2
         // Go through all the pages in BufferPool
-        Iterator<Page> pageIterator = lruCache.valueIterator();
-        while (pageIterator.hasNext()) {
-            Page next = pageIterator.next();
-            if (next.isDirty() == tid) {
-                flushPage(next.getId());
+//        Iterator<Page> pageIterator = lruCache.valueIterator();
+//        while (pageIterator.hasNext()) {
+//            Page next = pageIterator.next();
+//            if (next.isDirty() == tid) {
+//                flushPage(next.getId());
+//            }
+//        }
+        pageMap.forEach((pageId, page) -> {
+            if (page.isDirty() == tid) {
+                try {
+                    flushPage(pageId);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-        }
+        });
     }
 
     /**
@@ -342,6 +360,20 @@ public class BufferPool {
 //            }
 //        }
 //        throw new DbException("All the pages are dirty in BufferPool!");
+        if (pageMap.size() < numPages) { // pageMap未满,不作处理
+            return;
+        }
+        boolean evicted = false;
+        Iterator<Map.Entry<PageId, Page>> iterator = pageMap.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<PageId, Page> next = iterator.next();
+            if (next.getValue().isDirty() == null) { // Evict a page that is not dirty
+                iterator.remove();
+                evicted = true;
+            }
+        }
+        if(!evicted)
+            throw new DbException("evict Fail");
     }
 }
 

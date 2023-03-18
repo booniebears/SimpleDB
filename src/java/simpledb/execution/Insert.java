@@ -20,11 +20,11 @@ public class Insert extends Operator {
 
     private static final long serialVersionUID = 1L;
 
-    private TransactionId t;
+    private final TransactionId t;
     private OpIterator child;
-    private int tableId;
+    private final int tableId;
     private boolean isFetched;
-    private TupleDesc insertTd;
+    private final TupleDesc insertTd;
 
     /**
      * Constructor.
@@ -84,6 +84,8 @@ public class Insert extends Operator {
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
         // Insert several tuples from "child".
+        if (isFetched) return null;
+        isFetched = true;
         int cnt = 0;
         while (child.hasNext()) {
             Tuple next = child.next();
@@ -95,10 +97,6 @@ public class Insert extends Operator {
             }
             cnt++;
         }
-        if (cnt == 0 && isFetched) {
-            return null;
-        }
-        isFetched = true;
         // A TupleDesc for the operation "Insert". Only one field, which indicates the
         // number of inserted records.
         Tuple tuple = new Tuple(insertTd);
