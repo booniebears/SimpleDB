@@ -95,21 +95,6 @@ public class BufferPool {
             if (System.currentTimeMillis() - start > timeOut)
                 throw new TransactionAbortedException();
         }
-//        LockType lockType = perm == Permissions.READ_ONLY ? LockType.SHARED_LOCK : LockType.EX_LOCK;
-//        int retry = 2;
-//        try {
-//            if (!lockManager.acquireLock(pid, tid, lockType, retry)) {
-//                System.out.println("Fail to acquire lock!!!");
-//                throw new TransactionAbortedException();
-//            }
-//        } catch (InterruptedException e) {
-//            System.out.println("Exception found when acquiring lock!!!");
-//            e.printStackTrace();
-//        }
-//        Page page = lruCache.get(pid);
-//        if (page != null) {
-//            return page;
-//        }
         if (pageMap.containsKey(pid)) return pageMap.get(pid);
         //if the page is not in the lruCache, then load the page into the cache.
         return LoadNewPage(pid);
@@ -212,25 +197,6 @@ public class BufferPool {
         lockManager.releaseAllLocks(tid);
     }
 
-    /**
-     * Revert any changes made by the transaction by restoring the page to its on-disk state.
-     */
-    public synchronized void restorePages(TransactionId tid) {
-//        Iterator<Page> pageIterator = lruCache.valueIterator();
-//        while (pageIterator.hasNext()) {
-//            Page next = pageIterator.next();
-//            if (next.isDirty() == tid) {
-//                // Discard the dirty page in the BufferPool, then load it again from disk
-//                discardPage(next.getId());
-//                try {
-//                    LoadNewPage(next.getId());
-//                } catch (DbException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        }
-
-    }
 
     /**
      * Add a tuple to the specified table on behalf of transaction tid.  Will
