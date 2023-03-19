@@ -65,9 +65,9 @@ public class TableStats {
      */
     static final int NUM_HIST_BINS = 100;
 
-    private int tableId;
-    private int ioCostPerPage;
-    private int numPages;
+    private final int tableId;
+    private final int ioCostPerPage;
+    private final int numPages;
     private int numTuples;
 
     /**
@@ -76,8 +76,8 @@ public class TableStats {
      * "Histogram<T>" is introduced, with class IntHistogram and StringHistogram as its
      * implementations. The map is used in the method "estimateSelectivity"
      */
-    private Map<Integer, Histogram> histogramMap;
-    private TupleDesc td;
+    private final Map<Integer, Histogram> histogramMap;
+    private final TupleDesc td;
 
 
     /**

@@ -10,11 +10,11 @@ import java.util.Arrays;
 public class IntHistogram implements Histogram<Integer>{
     // Histogram means "直方图"
 
-    private int width; // width指的是除了最后一个bucket之外,每个bucket的横坐标宽度
-    private int lastWidth; // 最后一个bucket的横坐标宽度. Note that it may be greater than width.
-    private int min;
-    private int max;
-    private int[] buckets;
+    private final int width; // width指的是除了最后一个bucket之外,每个bucket的横坐标宽度
+    private final int lastWidth; // 最后一个bucket的横坐标宽度. Note that it may be greater than width.
+    private final int min;
+    private final int max;
+    private final int[] buckets;
     private int numTuples;
 
     /**
