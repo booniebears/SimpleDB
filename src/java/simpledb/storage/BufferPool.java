@@ -39,7 +39,7 @@ public class BufferPool {
      */
     public static final int DEFAULT_PAGES = 50;
 
-    private LRUCache lruCache; // A mapping from PageId to Page.
+    //    private LRUCache lruCache; // A mapping from PageId to Page.
     private final LockManager lockManager;
     private final Map<PageId, Page> pageMap;
     private final int numPages;
@@ -51,7 +51,7 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
-        this.lruCache = new LRUCache(numPages);
+//        this.lruCache = new LRUCache(numPages);
         this.lockManager = new LockManager();
         this.pageMap = new HashMap<>();
         this.numPages = numPages;
@@ -89,18 +89,23 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
         // some code goes here
-        LockType lockType = perm == Permissions.READ_ONLY ? LockType.SHARED_LOCK : LockType.EX_LOCK;
-        int retry = 2;
-        try {
-            if (!lockManager.acquireLock(pid, tid, lockType, retry)) {
-                System.out.println("Fail to acquire lock!!!");
+        long start = System.currentTimeMillis();
+        long timeOut = (long) (200 + Math.random() * 1000L);
+        while (!this.lockManager.tryLock(tid, pid, perm)) {
+            if (System.currentTimeMillis() - start > timeOut)
                 throw new TransactionAbortedException();
-            }
-        } catch (InterruptedException e) {
-            System.out.println("Exception found when acquiring lock!!!");
-            e.printStackTrace();
         }
-
+//        LockType lockType = perm == Permissions.READ_ONLY ? LockType.SHARED_LOCK : LockType.EX_LOCK;
+//        int retry = 2;
+//        try {
+//            if (!lockManager.acquireLock(pid, tid, lockType, retry)) {
+//                System.out.println("Fail to acquire lock!!!");
+//                throw new TransactionAbortedException();
+//            }
+//        } catch (InterruptedException e) {
+//            System.out.println("Exception found when acquiring lock!!!");
+//            e.printStackTrace();
+//        }
 //        Page page = lruCache.get(pid);
 //        if (page != null) {
 //            return page;
@@ -172,15 +177,37 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid, boolean commit) {
         // some code goes here
         // not necessary for lab1|lab2
-        if (commit) { //Commit successfully
-            try {
-                flushPages(tid);
-            } catch (IOException e) {
-                e.printStackTrace();
+        Set<PageId> collections = lockManager.getPageIds(tid);
+        synchronized (this.pageMap) {
+            if (commit) {
+                collections.forEach(pageId -> {
+                    if (pageMap.containsKey(pageId) && Objects.equals(pageMap.get(pageId).isDirty(), tid)) {
+                        try {
+                            flushPage(pageId);
+                            pageMap.get(pageId).setBeforeImage();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+            } else {
+                Set<PageId> exLockPages = lockManager.getEXLockPages(tid);
+                collections.forEach(pageId -> {
+                    if (pageMap.containsKey(pageId) && exLockPages.contains(pageId)) {
+                        pageMap.remove(pageId);
+                    }
+                });
             }
-        } else {
-            restorePages(tid);
         }
+//        if (commit) { //Commit successfully
+//            try {
+//                flushPages(tid);
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        } else {
+//            restorePages(tid);
+//        }
         // Releasing any locks that the transaction held
         lockManager.releaseAllLocks(tid);
     }
@@ -189,19 +216,20 @@ public class BufferPool {
      * Revert any changes made by the transaction by restoring the page to its on-disk state.
      */
     public synchronized void restorePages(TransactionId tid) {
-        Iterator<Page> pageIterator = lruCache.valueIterator();
-        while (pageIterator.hasNext()) {
-            Page next = pageIterator.next();
-            if (next.isDirty() == tid) {
-                // Discard the dirty page in the BufferPool, then load it again from disk
-                discardPage(next.getId());
-                try {
-                    LoadNewPage(next.getId());
-                } catch (DbException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
+//        Iterator<Page> pageIterator = lruCache.valueIterator();
+//        while (pageIterator.hasNext()) {
+//            Page next = pageIterator.next();
+//            if (next.isDirty() == tid) {
+//                // Discard the dirty page in the BufferPool, then load it again from disk
+//                discardPage(next.getId());
+//                try {
+//                    LoadNewPage(next.getId());
+//                } catch (DbException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+
     }
 
     /**
@@ -278,6 +306,8 @@ public class BufferPool {
         pageMap.forEach((pageId, page) -> {
             try {
                 flushPage(pageId);
+                page.setBeforeImage();
+                page.markDirty(false, null);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -372,7 +402,7 @@ public class BufferPool {
                 evicted = true;
             }
         }
-        if(!evicted)
+        if (!evicted)
             throw new DbException("evict Fail");
     }
 }
