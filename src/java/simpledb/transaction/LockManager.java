@@ -17,6 +17,7 @@ public class LockManager {
     private static final int S_LOCK_WAIT_TIME = 100;
     private static final int MAX_RETRY = 3;
 
+    /*Have to make thorough changes.*/
     public LockManager() {
         lockMap = new ConcurrentHashMap<>();
     }
