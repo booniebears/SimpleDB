@@ -78,9 +78,12 @@ public class LockManager {
      */
     public void releaseAllLocks(TransactionId tid) {
         Set<PageId> pageIds = tpMap.get(tid);
-        for (PageId pid : pageIds) {
-            PageLock pageLock = ppMap.get(pid);
-            pageLock.releaseLock(tid);
+        if (pageIds != null) {
+            //Have to add this, otherwise a NullPointerException will be raised.
+            for (PageId pid : pageIds) {
+                PageLock pageLock = ppMap.get(pid);
+                pageLock.releaseLock(tid);
+            }
         }
         //        Set<PageId> sets = lockMap.keySet();
 //        for (PageId pid : sets) {
