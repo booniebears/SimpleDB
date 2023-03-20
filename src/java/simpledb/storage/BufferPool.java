@@ -96,7 +96,7 @@ public class BufferPool {
                 throw new TransactionAbortedException();
         }
         if (pageMap.containsKey(pid)) return pageMap.get(pid);
-        //if the page is not in the lruCache, then load the page into the cache.
+        //if the page is not in the BufferPool, then load the page into it.
         return LoadNewPage(pid);
     }
 
@@ -184,7 +184,8 @@ public class BufferPool {
                 });
             }
         }
-//        if (commit) { //Commit successfully
+        lockManager.releaseAllLocks(tid);
+        //        if (commit) { //Commit successfully
 //            try {
 //                flushPages(tid);
 //            } catch (IOException e) {
@@ -194,7 +195,6 @@ public class BufferPool {
 //            restorePages(tid);
 //        }
         // Releasing any locks that the transaction held
-        lockManager.releaseAllLocks(tid);
     }
 
 

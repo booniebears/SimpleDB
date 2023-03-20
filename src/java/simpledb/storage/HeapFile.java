@@ -167,6 +167,7 @@ public class HeapFile implements DbFile {
                 Permissions.READ_WRITE);
         if (page != null && page.isSlotUsed(recordId.getTupleNumber())) {
             page.deleteTuple(t);
+            page.markDirty(true, tid);
             pageList.add(page);
         }
         return pageList;

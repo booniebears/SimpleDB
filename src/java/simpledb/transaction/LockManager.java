@@ -18,18 +18,12 @@ public class LockManager {
 //    private static final int S_LOCK_WAIT_TIME = 100;
 //    private static final int MAX_RETRY = 3;
 
-    private final Map<TransactionId, Set<PageId>> tpMap;
-    private final Map<PageId, PageLock> ppMap;
-
-    /*Have to make thorough changes.*/
-    public LockManager() {
-//        lockMap = new ConcurrentHashMap<>();
-        tpMap = new ConcurrentHashMap<>();
-        ppMap = new ConcurrentHashMap<>();
-    }
+    public final Map<TransactionId, Set<PageId>> tpMap = new ConcurrentHashMap<>();
+    public final Map<PageId, PageLock> ppMap = new ConcurrentHashMap<>();
 
     public synchronized boolean tryLock(TransactionId tid, PageId pid, Permissions perm) {
         PageLock newLock = new PageLock(pid);
+        // putIfAbsent() will not cover the old value of the map; but put() will.
         PageLock pageLock = ppMap.putIfAbsent(pid, newLock);
         if (pageLock == null) // Indicates that a new pair is inserted into "ppMap"
             pageLock = newLock;
@@ -44,20 +38,22 @@ public class LockManager {
         else
             ans = pageLock.exclusiveLock(tid);
         if (ans) // Don't forget to change the values in tpMap.
+            // Take care of the pass by reference trick. When we change the "holdLockList",
+            // the relevant value in tpMap is also changed.
             holdLockList.add(pid);
         return ans;
     }
 
     public boolean holdsLock(TransactionId tid, PageId p) {
-//        if (lockMap.containsKey(p)) {
-//            ConcurrentHashMap<TransactionId, LockType> map = lockMap.get(p);
-//            return map.containsKey(tid);
-//        }
-//        return false;
         if (tpMap.containsKey(tid)) {
             return tpMap.get(tid).contains(p);
         }
         return false;
+        //        if (lockMap.containsKey(p)) {
+//            ConcurrentHashMap<TransactionId, LockType> map = lockMap.get(p);
+//            return map.containsKey(tid);
+//        }
+//        return false;
     }
 
     /**
@@ -80,25 +76,26 @@ public class LockManager {
     /**
      * Release the locks of a transaction on all the pages
      */
-    public synchronized void releaseAllLocks(TransactionId tid) {
-//        Set<PageId> sets = lockMap.keySet();
+    public void releaseAllLocks(TransactionId tid) {
+        Set<PageId> pageIds = tpMap.get(tid);
+        for (PageId pid : pageIds) {
+            PageLock pageLock = ppMap.get(pid);
+            pageLock.releaseLock(tid);
+        }
+        //        Set<PageId> sets = lockMap.keySet();
 //        for (PageId pid : sets) {
 //            releaseLockOnPage(tid, pid);
 //        }
-        Set<PageId> pageIds = tpMap.get(tid);
-        if (pageIds != null) {
-            for (PageId pid : pageIds) {
-                PageLock pageLock = ppMap.get(pid);
-                pageLock.releaseLock(tid);
-            }
-        }
     }
 
     /**
      * Release the locks on one page
      */
-    public synchronized void releaseLockOnPage(TransactionId tid, PageId pid) {
-//        if (holdsLock(tid, pid)) {
+    public void releaseLockOnPage(TransactionId tid, PageId pid) {
+        PageLock pageLock = ppMap.get(pid);
+        pageLock.releaseLock(tid);
+        tpMap.get(tid).remove(pid);
+        //        if (holdsLock(tid, pid)) {
 //            ConcurrentHashMap<TransactionId, LockType> map = lockMap.get(pid);
 //            map.remove(tid);
 //            if (map.size() == 0) {
@@ -108,9 +105,6 @@ public class LockManager {
 //            // !!! Wakeup other threads
 //            this.notifyAll();
 //        }
-        PageLock pageLock = ppMap.get(pid);
-        pageLock.releaseLock(tid);
-        tpMap.get(tid).remove(pid);
     }
 
     private static class PageLock {
