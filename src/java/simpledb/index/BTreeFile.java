@@ -253,6 +253,8 @@ public class BTreeFile implements DbFile {
         // the sibling pointers of all the affected leaf pages.  Return the page into which a
         // tuple with the given key field should be inserted.
 
+        // Always remember to update the set of dirtypages with any newly created pages as well as
+        // any pages modified due to new pointers or new data!!!
         // First, modify the double linked list structure of leaf pages.
         BTreeLeafPage rightPage = (BTreeLeafPage) getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
         rightPage.setLeftSiblingId(page.getId());
@@ -262,6 +264,7 @@ public class BTreeFile implements DbFile {
             BTreeLeafPage rrPage = (BTreeLeafPage) getPage(tid, dirtypages, rightPage.getRightSiblingId(),
                     Permissions.READ_WRITE);
             rrPage.setLeftSiblingId(rightPage.getId());
+            dirtypages.put(rrPage.getId(), rrPage);
         }
 
         // Second, determine the page which a tuple with the given key field should be inserted.
@@ -273,10 +276,11 @@ public class BTreeFile implements DbFile {
                 break;
             }
         }
-        // A little bit tricky???
+        // A little bit tricky. 如果split之后两叶上的tuple数目完全一致,此时插入一个tuple,若其Field值为v,
+        // 左叶子最大值为v0,右叶子最小值为v1,当v0<v<=v1,插入右叶子;当v=v0=v1,插入左叶子。
         insertPage = index > (page.getNumTuples() + 1) / 2 ? rightPage : page;
 
-        // Third, insert the tuples into the new page.
+        // Third, insert the tuples into the new page. The tuples of the original page are divided evenly.
         Iterator<Tuple> tupleIterator = page.reverseIterator();
         int numTuples = page.getNumTuples();
         for (int i = 0; i < numTuples / 2; i++) {
@@ -286,6 +290,7 @@ public class BTreeFile implements DbFile {
         }
 
         // Fourth, split the parent as needed.
+        // 插入父节点的值是rightPage中的最小值(考虑field的插入之后)
         Field key = rightPage.getTuple(0).getField(keyField);
         if (insertPage == rightPage && field.compare(Op.LESS_THAN, key)) {
             key = field;
@@ -294,6 +299,10 @@ public class BTreeFile implements DbFile {
         BTreeEntry entry = new BTreeEntry(key, page.getId(), rightPage.getId());
         parent.insertEntry(entry);
         rightPage.setParentId(parent.getId());
+        dirtypages.put(page.getId(), page);
+        dirtypages.put(rightPage.getId(), rightPage);
+        dirtypages.put(parent.getId(), parent);
+
         return insertPage;
 
     }
@@ -338,6 +347,7 @@ public class BTreeFile implements DbFile {
 
         // Second, determine the page where an entry with with the given key field should be inserted.
         BTreeInternalPage insertPage;
+        // start from 1 because the first key slot is not used(Seen in BTreeInternalPage.java)
         int index = 1;
         for (; index < page.getNumEntries(); index++) {
             if (field.compare(Op.LESS_THAN_OR_EQ, page.getKey(index))) {
@@ -359,6 +369,7 @@ public class BTreeFile implements DbFile {
         }
 
         // Fourth, modify the structure of B+ tree(parent)
+        // The entry of the greatest value on the left page is pushed up to "parent"
         BTreeEntry bTreeEntry = iterator.next();
         BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, page.getParentId(),
                 bTreeEntry.getKey());
@@ -367,6 +378,9 @@ public class BTreeFile implements DbFile {
         bTreeEntry.setRightChild(rightPage.getId());
         parent.insertEntry(bTreeEntry);
         rightPage.setParentId(parent.getId());
+        dirtypages.put(page.getId(), page);
+        dirtypages.put(rightPage.getId(), rightPage);
+        dirtypages.put(parent.getId(), parent);
         return insertPage;
     }
 
