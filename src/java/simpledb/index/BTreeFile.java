@@ -890,10 +890,9 @@ public class BTreeFile implements DbFile {
         leftPage.setRightSiblingId(rightSiblingId);
         if (rightSiblingId != null) {
             BTreeLeafPage rrPage = (BTreeLeafPage) getPage(tid, dirtypages, rightSiblingId,
-                    Permissions.READ_ONLY);
+                    Permissions.READ_WRITE);
             rrPage.setLeftSiblingId(leftPage.getId());
         }
-
 
         // 4. setEmptyPage() for reuse of deleted pages. Delete the relevant entry in "parent".
         setEmptyPage(tid, dirtypages, rightPage.getId().getPageNumber());
@@ -954,7 +953,6 @@ public class BTreeFile implements DbFile {
         deleteParentEntry(tid, dirtypages, leftPage, parent, parentEntry);
         dirtypages.put(leftPage.getId(), leftPage);
         dirtypages.put(parent.getId(), parent);
-
     }
 
     /**
