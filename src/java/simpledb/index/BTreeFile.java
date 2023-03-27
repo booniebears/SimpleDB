@@ -894,6 +894,7 @@ public class BTreeFile implements DbFile {
             rrPage.setLeftSiblingId(leftPage.getId());
         }
 
+
         // 4. setEmptyPage() for reuse of deleted pages. Delete the relevant entry in "parent".
         setEmptyPage(tid, dirtypages, rightPage.getId().getPageNumber());
         deleteParentEntry(tid, dirtypages, leftPage, parent, parentEntry);
