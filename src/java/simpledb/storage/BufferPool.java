@@ -169,6 +169,8 @@ public class BufferPool {
                     if (pageMap.containsKey(pageId) && Objects.equals(pageMap.get(pageId).isDirty(), tid)) {
                         try {
                             flushPage(pageId);
+                            // use current page contents as the before-image
+                            // for the next transaction that modifies this page.
                             pageMap.get(pageId).setBeforeImage();
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -308,7 +310,13 @@ public class BufferPool {
         DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
 //        Page page = lruCache.get(pid);
         Page page = pageMap.get(pid);
-        // TODO: logfile???
+        // append an update record to the log, with
+        // a before-image and after-image.
+        TransactionId dirtier = page.isDirty();
+        if (dirtier != null) {
+            Database.getLogFile().logWrite(dirtier, page.getBeforeImage(), page);
+            Database.getLogFile().force();
+        }
         dbFile.writePage(page);
         page.markDirty(false, null);
     }
