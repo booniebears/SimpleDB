@@ -557,7 +557,11 @@ public class LogFile {
                 raf = new RandomAccessFile(logFile, "rw");
                 // read the getRecoverOffset:
                 // 第一个恢复点应该是crash时记录到的checkpoint中记录的最早的活跃的事务的offset。
-                // TODO: recover()原理
+
+                HashSet<Long> committed = new HashSet<>();
+                HashMap<Long, List<Page>> beforeImgs = new HashMap<>();
+                HashMap<Long, List<Page>> afterImgs = new HashMap<>();
+
                 long recoverOffset = getRecoverOffset();
                 if (recoverOffset != -1L) {
                     raf.seek(recoverOffset);
@@ -568,15 +572,48 @@ public class LogFile {
                         long transactionId = raf.readLong();
                         switch (type) {
                             case COMMIT_RECORD:
+                                committed.add(transactionId);
                                 break;
-                            case ABORT_RECORD:
+                            case UPDATE_RECORD: // recover()针对的就是update操作
+                                Page before = readPageData(raf);
+                                Page after = readPageData(raf);
+                                List<Page> beforePages = beforeImgs.getOrDefault(transactionId, new ArrayList<>());
+                                List<Page> afterPages = afterImgs.getOrDefault(transactionId, new ArrayList<>());
+                                beforePages.add(before);
+                                afterPages.add(after);
+                                beforeImgs.put(transactionId, beforePages);
+                                afterImgs.put(transactionId, afterPages);
                                 break;
                             case CHECKPOINT_RECORD:
+                                int num = raf.readInt();
+                                while (num-- > 0) {
+                                    raf.readLong();
+                                    raf.readLong();
+                                }
                                 break;
                         }
                         raf.readLong();
                     } catch (EOFException e) {
                         break;
+                    }
+                }
+
+                //处理未提交的事务，利用before进行undo
+                for (long tid : beforeImgs.keySet()) {
+                    if (!committed.contains(tid)) {
+                        List<Page> pages = beforeImgs.get(tid);
+                        for (Page undo : pages) {
+                            Database.getCatalog().getDatabaseFile(undo.getId().getTableId()).writePage(undo);
+                        }
+                    }
+                }
+                //处理已经提交的事务，利用after进行redo
+                for (long tid : committed) {
+                    if (afterImgs.containsKey(tid)) {
+                        List<Page> pages = afterImgs.get(tid);
+                        for (Page redo : pages) {
+                            Database.getCatalog().getDatabaseFile(redo.getId().getTableId()).writePage(redo);
+                        }
                     }
                 }
             }
@@ -586,7 +623,7 @@ public class LogFile {
     private synchronized long getRecoverOffset() {
         try {
             raf.seek(0);
-            long checkPoint = raf.readLong(); // Read the checkPoint first
+            long checkPoint = raf.readLong(); // Read the last checkPoint first
             if (checkPoint == -1L) {
                 return -1L;
             } else {
