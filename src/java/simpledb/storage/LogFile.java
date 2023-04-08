@@ -477,7 +477,60 @@ public class LogFile {
      *
      * @param tid The transaction to rollback
      */
-//    public void rollback(TransactionId tid)
+    public void rollback(TransactionId tid)
+            throws NoSuchElementException, IOException {
+        synchronized (Database.getBufferPool()) {
+            synchronized (this) {
+                preAppend();
+                // some code goes here
+                Long record = this.tidToFirstLogRecord.get(tid.getId());
+                Set<PageId> pageSet = new HashSet<>();
+                raf.seek(record);
+                long curOffset = raf.getFilePointer();
+                while (true) {
+                    try {
+                        int cpType = raf.readInt();
+                        long cpTid = raf.readLong();
+                        if (cpType == UPDATE_RECORD) {
+                            System.out.println(" (UPDATE)");
+                            long start = raf.getFilePointer();
+                            Page before = readPageData(raf);
+                            if (cpTid == tid.getId() && !pageSet.contains(before.getId())) {
+                                pageSet.add(before.getId());
+                                Database.getCatalog().getDatabaseFile(before.getId().getTableId())
+                                        .writePage(before);
+                                Database.getBufferPool().discardPage(before.getId());
+                            }
+                            long middle = raf.getFilePointer();
+                            Page after = readPageData(raf);
+                            System.out.println(start + ": before image table id " + before.getId().getTableId());
+                            System.out.println((start + INT_SIZE) + ": before image page number " + before.getId().getPageNumber());
+                            System.out.println((start + INT_SIZE) + " TO " + (middle - INT_SIZE) + ": page data");
+                            System.out.println(middle + ": after image table id " + after.getId().getTableId());
+                            System.out.println((middle + INT_SIZE) + ": after image page number " + after.getId().getPageNumber());
+                            System.out.println((middle + INT_SIZE) + " TO " + (raf.getFilePointer()) + ": page data");
+                            System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
+                        } else if (cpType == CHECKPOINT_RECORD) {
+                            System.out.println(" (CHECKPOINT)");
+                            int numTransactions = raf.readInt();
+                            System.out.println((raf.getFilePointer() - INT_SIZE) + ": NUMBER OF OUTSTANDING RECORDS: " + numTransactions);
+                            while (numTransactions-- > 0) {
+                                raf.readLong();
+                                raf.readLong();
+                            }
+                            raf.readLong();
+                        } else {
+                            raf.readLong();
+                        }
+                    } catch (EOFException e) {
+                        break;
+                    }
+                }
+                raf.seek(curOffset);
+            }
+        }
+    }
+    //    public void rollback(TransactionId tid)
 //            throws NoSuchElementException, IOException {
 //        synchronized (Database.getBufferPool()) {
 //            synchronized (this) {
@@ -528,60 +581,6 @@ public class LogFile {
 //            }
 //        }
 //    }
-
-    public void rollback(TransactionId tid)
-            throws NoSuchElementException, IOException {
-        synchronized (Database.getBufferPool()) {
-            synchronized (this) {
-                preAppend();
-                // some code goes here
-                Long record = this.tidToFirstLogRecord.get(tid.getId());
-                Map<PageId, Page> pages = new HashMap<>();
-                raf.seek(record);
-                long curOffset = raf.getFilePointer();
-                while (true) {
-                    try {
-                        int cpType = raf.readInt();
-                        long cpTid = raf.readLong();
-                        if (cpType == UPDATE_RECORD) {
-                            System.out.println(" (UPDATE)");
-                            long start = raf.getFilePointer();
-                            Page before = readPageData(raf);
-                            if (cpTid == tid.getId()){
-                                pages.putIfAbsent(before.getId(), before);
-                            }
-                            long middle = raf.getFilePointer();
-                            Page after = readPageData(raf);
-                            System.out.println(start + ": before image table id " + before.getId().getTableId());
-                            System.out.println((start + INT_SIZE) + ": before image page number " + before.getId().getPageNumber());
-                            System.out.println((start + INT_SIZE) + " TO " + (middle - INT_SIZE) + ": page data");
-                            System.out.println(middle + ": after image table id " + after.getId().getTableId());
-                            System.out.println((middle + INT_SIZE) + ": after image page number " + after.getId().getPageNumber());
-                            System.out.println((middle + INT_SIZE) + " TO " + (raf.getFilePointer()) + ": page data");
-                            System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
-                        }else if (cpType == CHECKPOINT_RECORD){
-                            System.out.println(" (CHECKPOINT)");
-                            int numTransactions = raf.readInt();
-                            System.out.println((raf.getFilePointer() - INT_SIZE) + ": NUMBER OF OUTSTANDING RECORDS: " + numTransactions);
-                            while (numTransactions-- > 0) {
-                                long ttid = raf.readLong();
-                                long firstRecord = raf.readLong();
-                            }
-                            raf.readLong();
-                        }else {
-                            raf.readLong();
-                        }
-                    } catch (EOFException e) {
-                        break;
-                    }
-                }
-                for (Page page : pages.values()){
-                    Database.getCatalog().getDatabaseFile(page.getId().getTableId()).writePage(page);
-                }
-                raf.seek(curOffset);
-            }
-        }
-    }
 
     /**
      * Shutdown the logging system, writing out whatever state
@@ -673,7 +672,6 @@ public class LogFile {
 //            }
 //        }
 //    }
-
     public void recover() throws IOException {
         synchronized (Database.getBufferPool()) {
             synchronized (this) {
@@ -684,15 +682,15 @@ public class LogFile {
                 raf.seek(0);
 
                 System.out.println("0: checkpoint record at offset " + raf.readLong());
-                Map<Long,Map<PageId,Page>> redo = new HashMap<>();
-                Map<Long,Map<PageId,Page>> undo = new HashMap<>();
+                Map<Long, Map<PageId, Page>> redo = new HashMap<>();
+                Map<Long, Map<PageId, Page>> undo = new HashMap<>();
                 while (true) {
                     try {
                         int cpType = raf.readInt();
                         long cpTid = raf.readLong();
 
-                        redo.putIfAbsent(cpTid,new HashMap<>());
-                        undo.putIfAbsent(cpTid,new HashMap<>());
+                        redo.putIfAbsent(cpTid, new HashMap<>());
+                        undo.putIfAbsent(cpTid, new HashMap<>());
 
                         switch (cpType) {
                             case BEGIN_RECORD:
@@ -707,7 +705,7 @@ public class LogFile {
                                 System.out.println(" (COMMIT)");
                                 System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
                                 Collection<Page> pageSet = redo.remove(cpTid).values();
-                                for (Page page : pageSet){
+                                for (Page page : pageSet) {
                                     Database.getCatalog().getDatabaseFile(page.getId().getTableId()).writePage(page);
                                 }
                                 undo.remove(cpTid);
@@ -731,10 +729,10 @@ public class LogFile {
 
                                 long start = raf.getFilePointer();
                                 Page before = readPageData(raf);
-                                undo.get(cpTid).putIfAbsent(before.getId(),before);
+                                undo.get(cpTid).putIfAbsent(before.getId(), before);
                                 long middle = raf.getFilePointer();
                                 Page after = readPageData(raf);
-                                redo.get(cpTid).put(before.getId(),after);
+                                redo.get(cpTid).put(before.getId(), after);
 
                                 System.out.println(start + ": before image table id " + before.getId().getTableId());
                                 System.out.println((start + INT_SIZE) + ": before image page number " + before.getId().getPageNumber());
@@ -753,8 +751,8 @@ public class LogFile {
                     }
                 }
 
-                for (Map<PageId,Page> pages: undo.values()){
-                    for (Page page : pages.values()){
+                for (Map<PageId, Page> pages : undo.values()) {
+                    for (Page page : pages.values()) {
                         Database.getCatalog().getDatabaseFile(page.getId().getTableId()).writePage(page);
                     }
                 }
