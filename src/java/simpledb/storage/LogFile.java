@@ -477,54 +477,108 @@ public class LogFile {
      *
      * @param tid The transaction to rollback
      */
+//    public void rollback(TransactionId tid)
+//            throws NoSuchElementException, IOException {
+//        synchronized (Database.getBufferPool()) {
+//            synchronized (this) {
+//                preAppend();
+//                // some code goes here
+//                raf.seek(tidToFirstLogRecord.get(tid.getId()));
+//                Set<PageId> rollbackPages = new HashSet<>();
+//                while (true) {
+//                    // Each log record begins with an integer type and a long integer transaction id.
+//                    // Each log record ends with a long integer file offset representing
+//                    // the position in the log file where the record began.
+//                    try {
+//                        int type = raf.readInt();
+//                        long transactionId = raf.readLong();
+//                        switch (type) {
+//                            case UPDATE_RECORD:
+//                                Page beforeImg = readPageData(raf); // a before image
+//                                Page afterImg = readPageData(raf); // an after image
+//                                // If multiple changes are made to a page, only one rollback
+//                                // operation is allowed!!!
+//                                if (tid.getId() == transactionId &&
+//                                        !rollbackPages.contains(beforeImg.getId())) {
+//                                    rollbackPages.add(beforeImg.getId());
+//                                    DbFile file = Database.getCatalog().getDatabaseFile(
+//                                            beforeImg.getId().getTableId());
+//                                    file.writePage(beforeImg);
+//                                    Database.getBufferPool().discardPage(afterImg.getId());
+//                                }
+//                                break;
+//                            // Although we don't need to make any changes for a CHECKPOINT_RECORD,
+//                            // the data format is different from other records, so special treatment
+//                            // is needed here.
+//                            case CHECKPOINT_RECORD:
+//                                int num = raf.readInt(); // read out the num of tid
+//                                while (num-- > 0) {
+//                                    raf.readLong(); // a long integer transaction id
+//                                    raf.readLong(); // a long integer first record offset
+//                                }
+//                                break;
+//                        }
+//                        // file offset is useless here
+//                        raf.readLong();
+//                    } catch (EOFException e) {
+//                        // Jump out of the loop when the file reaches the end.
+//                        break;
+//                    }
+//                }
+//            }
+//        }
+//    }
+
     public void rollback(TransactionId tid)
             throws NoSuchElementException, IOException {
         synchronized (Database.getBufferPool()) {
             synchronized (this) {
                 preAppend();
                 // some code goes here
-                raf.seek(tidToFirstLogRecord.get(tid.getId()));
-                Set<PageId> rollbackPages = new HashSet<>();
+                Long record = this.tidToFirstLogRecord.get(tid.getId());
+                Map<PageId, Page> pages = new HashMap<>();
+                raf.seek(record);
+                long curOffset = raf.getFilePointer();
                 while (true) {
-                    // Each log record begins with an integer type and a long integer transaction id.
-                    // Each log record ends with a long integer file offset representing
-                    // the position in the log file where the record began.
                     try {
-                        int type = raf.readInt();
-                        long transactionId = raf.readLong();
-                        switch (type) {
-                            case UPDATE_RECORD:
-                                Page beforeImg = readPageData(raf); // a before image
-                                Page afterImg = readPageData(raf); // an after image
-                                // If multiple changes are made to a page, only one rollback
-                                // operation is allowed!!!
-                                if (tid.getId() == transactionId &&
-                                        !rollbackPages.contains(beforeImg.getId())) {
-                                    rollbackPages.add(beforeImg.getId());
-                                    DbFile file = Database.getCatalog().getDatabaseFile(
-                                            beforeImg.getId().getTableId());
-                                    file.writePage(beforeImg);
-                                    Database.getBufferPool().discardPage(afterImg.getId());
-                                }
-                                break;
-                            // Although we don't need to make any changes for a CHECKPOINT_RECORD,
-                            // the data format is different from other records, so special treatment
-                            // is needed here.
-                            case CHECKPOINT_RECORD:
-                                int num = raf.readInt(); // read out the num of tid
-                                while (num-- > 0) {
-                                    raf.readLong(); // a long integer transaction id
-                                    raf.readLong(); // a long integer first record offset
-                                }
-                                break;
+                        int cpType = raf.readInt();
+                        long cpTid = raf.readLong();
+                        if (cpType == UPDATE_RECORD) {
+                            System.out.println(" (UPDATE)");
+                            long start = raf.getFilePointer();
+                            Page before = readPageData(raf);
+                            if (cpTid == tid.getId()){
+                                pages.putIfAbsent(before.getId(), before);
+                            }
+                            long middle = raf.getFilePointer();
+                            Page after = readPageData(raf);
+                            System.out.println(start + ": before image table id " + before.getId().getTableId());
+                            System.out.println((start + INT_SIZE) + ": before image page number " + before.getId().getPageNumber());
+                            System.out.println((start + INT_SIZE) + " TO " + (middle - INT_SIZE) + ": page data");
+                            System.out.println(middle + ": after image table id " + after.getId().getTableId());
+                            System.out.println((middle + INT_SIZE) + ": after image page number " + after.getId().getPageNumber());
+                            System.out.println((middle + INT_SIZE) + " TO " + (raf.getFilePointer()) + ": page data");
+                            System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
+                        }else if (cpType == CHECKPOINT_RECORD){
+                            System.out.println(" (CHECKPOINT)");
+                            int numTransactions = raf.readInt();
+                            System.out.println((raf.getFilePointer() - INT_SIZE) + ": NUMBER OF OUTSTANDING RECORDS: " + numTransactions);
+                            while (numTransactions-- > 0) {
+                                long ttid = raf.readLong();
+                                long firstRecord = raf.readLong();
+                            }
+                            raf.readLong();
+                        }else {
+                            raf.readLong();
                         }
-                        // file offset is useless here
-                        raf.readLong();
                     } catch (EOFException e) {
-                        // Jump out of the loop when the file reaches the end.
                         break;
                     }
                 }
+                for (Page page : pages.values()){
+                    Database.getCatalog().getDatabaseFile(page.getId().getTableId()).writePage(page);
+                }
+                raf.seek(curOffset);
             }
         }
     }
@@ -549,73 +603,165 @@ public class LogFile {
      * committed transactions are installed and that the
      * updates of uncommitted transactions are not installed.
      */
+//    public void recover() throws IOException {
+//        synchronized (Database.getBufferPool()) {
+//            synchronized (this) {
+//                recoveryUndecided = false;
+//                // some code goes here
+//                raf = new RandomAccessFile(logFile, "rw");
+//                // read the getRecoverOffset:
+//                // 第一个恢复点应该是crash时记录到的checkpoint中记录的最早的活跃的事务的offset。
+//
+//                HashSet<Long> committed = new HashSet<>();
+//                HashMap<Long, List<Page>> beforeImgs = new HashMap<>();
+//                HashMap<Long, List<Page>> afterImgs = new HashMap<>();
+//
+//                long recoverOffset = getRecoverOffset();
+//                if (recoverOffset != -1L) {
+//                    raf.seek(recoverOffset);
+//                }
+//                while (true) {
+//                    try {
+//                        int type = raf.readInt();
+//                        long transactionId = raf.readLong();
+//                        switch (type) {
+//                            case COMMIT_RECORD:
+//                                committed.add(transactionId);
+//                                break;
+//                            case UPDATE_RECORD: // recover()针对的就是update操作
+//                                Page before = readPageData(raf);
+//                                Page after = readPageData(raf);
+//                                List<Page> beforePages = beforeImgs.getOrDefault(transactionId, new ArrayList<>());
+//                                List<Page> afterPages = afterImgs.getOrDefault(transactionId, new ArrayList<>());
+//                                beforePages.add(before);
+//                                afterPages.add(after);
+//                                beforeImgs.put(transactionId, beforePages);
+//                                afterImgs.put(transactionId, afterPages);
+//                                break;
+//                            case CHECKPOINT_RECORD:
+//                                int num = raf.readInt();
+//                                while (num-- > 0) {
+//                                    raf.readLong();
+//                                    raf.readLong();
+//                                }
+//                                break;
+//                        }
+//                        raf.readLong();
+//                    } catch (EOFException e) {
+//                        break;
+//                    }
+//                }
+//
+//                //处理未提交的事务，利用before进行undo
+//                for (long tid : beforeImgs.keySet()) {
+//                    if (!committed.contains(tid)) {
+//                        List<Page> pages = beforeImgs.get(tid);
+//                        for (Page undo : pages) {
+//                            Database.getCatalog().getDatabaseFile(undo.getId().getTableId()).writePage(undo);
+//                        }
+//                    }
+//                }
+//                //处理已经提交的事务，利用after进行redo
+//                for (long tid : committed) {
+//                    if (afterImgs.containsKey(tid)) {
+//                        List<Page> pages = afterImgs.get(tid);
+//                        for (Page redo : pages) {
+//                            Database.getCatalog().getDatabaseFile(redo.getId().getTableId()).writePage(redo);
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+
     public void recover() throws IOException {
         synchronized (Database.getBufferPool()) {
             synchronized (this) {
                 recoveryUndecided = false;
                 // some code goes here
-                raf = new RandomAccessFile(logFile, "rw");
-                // read the getRecoverOffset:
-                // 第一个恢复点应该是crash时记录到的checkpoint中记录的最早的活跃的事务的offset。
+                long curOffset = raf.getFilePointer();
 
-                HashSet<Long> committed = new HashSet<>();
-                HashMap<Long, List<Page>> beforeImgs = new HashMap<>();
-                HashMap<Long, List<Page>> afterImgs = new HashMap<>();
+                raf.seek(0);
 
-                long recoverOffset = getRecoverOffset();
-                if (recoverOffset != -1L) {
-                    raf.seek(recoverOffset);
-                }
+                System.out.println("0: checkpoint record at offset " + raf.readLong());
+                Map<Long,Map<PageId,Page>> redo = new HashMap<>();
+                Map<Long,Map<PageId,Page>> undo = new HashMap<>();
                 while (true) {
                     try {
-                        int type = raf.readInt();
-                        long transactionId = raf.readLong();
-                        switch (type) {
-                            case COMMIT_RECORD:
-                                committed.add(transactionId);
+                        int cpType = raf.readInt();
+                        long cpTid = raf.readLong();
+
+                        redo.putIfAbsent(cpTid,new HashMap<>());
+                        undo.putIfAbsent(cpTid,new HashMap<>());
+
+                        switch (cpType) {
+                            case BEGIN_RECORD:
+                                System.out.println(" (BEGIN)");
+                                System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
                                 break;
-                            case UPDATE_RECORD: // recover()针对的就是update操作
-                                Page before = readPageData(raf);
-                                Page after = readPageData(raf);
-                                List<Page> beforePages = beforeImgs.getOrDefault(transactionId, new ArrayList<>());
-                                List<Page> afterPages = afterImgs.getOrDefault(transactionId, new ArrayList<>());
-                                beforePages.add(before);
-                                afterPages.add(after);
-                                beforeImgs.put(transactionId, beforePages);
-                                afterImgs.put(transactionId, afterPages);
+                            case ABORT_RECORD:
+                                System.out.println(" (ABORT)");
+                                System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
+                                break;
+                            case COMMIT_RECORD:
+                                System.out.println(" (COMMIT)");
+                                System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
+                                Collection<Page> pageSet = redo.remove(cpTid).values();
+                                for (Page page : pageSet){
+                                    Database.getCatalog().getDatabaseFile(page.getId().getTableId()).writePage(page);
+                                }
+                                undo.remove(cpTid);
                                 break;
                             case CHECKPOINT_RECORD:
-                                int num = raf.readInt();
-                                while (num-- > 0) {
-                                    raf.readLong();
-                                    raf.readLong();
+                                System.out.println(" (CHECKPOINT)");
+                                int numTransactions = raf.readInt();
+                                System.out.println((raf.getFilePointer() - INT_SIZE) + ": NUMBER OF OUTSTANDING RECORDS: " + numTransactions);
+
+                                while (numTransactions-- > 0) {
+                                    long tid = raf.readLong();
+                                    long firstRecord = raf.readLong();
+                                    System.out.println((raf.getFilePointer() - (LONG_SIZE + LONG_SIZE)) + ": TID: " + tid);
+                                    System.out.println((raf.getFilePointer() - LONG_SIZE) + ": FIRST LOG RECORD: " + firstRecord);
                                 }
+                                System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
+
+                                break;
+                            case UPDATE_RECORD:
+                                System.out.println(" (UPDATE)");
+
+                                long start = raf.getFilePointer();
+                                Page before = readPageData(raf);
+                                undo.get(cpTid).putIfAbsent(before.getId(),before);
+                                long middle = raf.getFilePointer();
+                                Page after = readPageData(raf);
+                                redo.get(cpTid).put(before.getId(),after);
+
+                                System.out.println(start + ": before image table id " + before.getId().getTableId());
+                                System.out.println((start + INT_SIZE) + ": before image page number " + before.getId().getPageNumber());
+                                System.out.println((start + INT_SIZE) + " TO " + (middle - INT_SIZE) + ": page data");
+
+                                System.out.println(middle + ": after image table id " + after.getId().getTableId());
+                                System.out.println((middle + INT_SIZE) + ": after image page number " + after.getId().getPageNumber());
+                                System.out.println((middle + INT_SIZE) + " TO " + (raf.getFilePointer()) + ": page data");
+
+                                System.out.println(raf.getFilePointer() + ": RECORD START OFFSET: " + raf.readLong());
                                 break;
                         }
-                        raf.readLong();
+
                     } catch (EOFException e) {
                         break;
                     }
                 }
 
-                //处理未提交的事务，利用before进行undo
-                for (long tid : beforeImgs.keySet()) {
-                    if (!committed.contains(tid)) {
-                        List<Page> pages = beforeImgs.get(tid);
-                        for (Page undo : pages) {
-                            Database.getCatalog().getDatabaseFile(undo.getId().getTableId()).writePage(undo);
-                        }
+                for (Map<PageId,Page> pages: undo.values()){
+                    for (Page page : pages.values()){
+                        Database.getCatalog().getDatabaseFile(page.getId().getTableId()).writePage(page);
                     }
                 }
-                //处理已经提交的事务，利用after进行redo
-                for (long tid : committed) {
-                    if (afterImgs.containsKey(tid)) {
-                        List<Page> pages = afterImgs.get(tid);
-                        for (Page redo : pages) {
-                            Database.getCatalog().getDatabaseFile(redo.getId().getTableId()).writePage(redo);
-                        }
-                    }
-                }
+
+
+                // Return the file pointer to its original position
+                raf.seek(curOffset);
             }
         }
     }

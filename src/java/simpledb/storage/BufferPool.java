@@ -171,7 +171,9 @@ public class BufferPool {
                             flushPage(pageId);
                             // use current page contents as the before-image
                             // for the next transaction that modifies this page.
-                            pageMap.get(pageId).setBeforeImage();
+                            Page page = pageMap.get(pageId);
+                            page.setBeforeImage();
+                            page.markDirty(false, null);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -273,9 +275,11 @@ public class BufferPool {
 //        }
         pageMap.forEach((pageId, page) -> {
             try {
-                flushPage(pageId);
-                page.setBeforeImage();
-                page.markDirty(false, null);
+                if (page.isDirty() != null) {
+                    flushPage(pageId);
+                    page.setBeforeImage();
+                    page.markDirty(false, null);
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
