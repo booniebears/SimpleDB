@@ -31,7 +31,7 @@ public class BTreeFile implements DbFile {
     private final File f;
     private final TupleDesc td;
     private final int tableid;
-    private final int keyField;
+    private final int keyField; // B+树以keyField对应关键字构建索引
 
     /**
      * Constructs a B+ tree file backed by the specified file.
